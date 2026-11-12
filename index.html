@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생 운동 기록 관리</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Pretendard & Inter -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #f8fafc;
+        }
+        /* 부드러운 등장 애니메이션 */
+        @keyframes slideDownFade {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-record-enter {
+            animation: slideDownFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-500/20">
+                    <i data-lucide="trophy" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">학생 운동 기록 관리</h1>
+                    <p class="text-xs sm:text-sm text-slate-500">체육 시간 및 방과후 활동 기록을 간편하게 입력하고 확인하세요.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 self-start sm:self-center">
+                <span id="syncStatusBadge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 transition-colors">
+                    <span id="syncStatusDot" class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span id="syncStatusText">Google Sheets 연동됨</span>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+            
+            <!-- 왼쪽: 기록 입력 폼 (5컬럼) -->
+            <section class="lg:col-span-5 bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5 sm:p-6">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i>
+                        새 운동 기록 입력
+                    </h2>
+                </div>
+
+                <form id="recordForm" class="space-y-5">
+                    <!-- 1. 학생 이름 드롭다운 -->
+                    <div>
+                        <label for="studentSelect" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            학생 이름 <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="relative">
+                            <select id="studentSelect" required class="w-full appearance-none rounded-xl border border-slate-300 bg-slate-50/50 px-4 py-3 pr-10 text-sm font-medium text-slate-800 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer">
+                                <option value="" disabled selected>학생을 선택해주세요</option>
+                                <option value="김민준">김민준 (1번)</option>
+                                <option value="이서연">이서연 (2번)</option>
+                                <option value="박지훈">박지훈 (3번)</option>
+                                <option value="최지우">최지우 (4번)</option>
+                                <option value="정하윤">정하윤 (5번)</option>
+                                <option value="강도현">강도현 (6번)</option>
+                                <option value="윤서아">윤서아 (7번)</option>
+                                <option value="임준우">임준우 (8번)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                                <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 운동 종목 선택 (카드형 라디오 버튼) -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            운동 종목 <span class="text-rose-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-3 gap-2.5" id="sportSelector">
+                            <!-- 달리기 -->
+                            <label class="cursor-pointer">
+                                <input type="radio" name="sport" value="달리기" class="peer sr-only" checked>
+                                <div class="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-slate-200 bg-white text-slate-600 peer-checked:border-blue-500 peer-checked:bg-blue-50/70 peer-checked:text-blue-700 hover:bg-slate-50 transition-all">
+                                    <span class="text-2xl mb-1">🏃</span>
+                                    <span class="text-xs sm:text-sm font-bold">달리기</span>
+                                </div>
+                            </label>
+                            <!-- 축구 -->
+                            <label class="cursor-pointer">
+                                <input type="radio" name="sport" value="축구" class="peer sr-only">
+                                <div class="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-slate-200 bg-white text-slate-600 peer-checked:border-emerald-500 peer-checked:bg-emerald-50/70 peer-checked:text-emerald-700 hover:bg-slate-50 transition-all">
+                                    <span class="text-2xl mb-1">⚽</span>
+                                    <span class="text-xs sm:text-sm font-bold">축구</span>
+                                </div>
+                            </label>
+                            <!-- 줄넘기 -->
+                            <label class="cursor-pointer">
+                                <input type="radio" name="sport" value="줄넘기" class="peer sr-only">
+                                <div class="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-slate-200 bg-white text-slate-600 peer-checked:border-amber-500 peer-checked:bg-amber-50/70 peer-checked:text-amber-700 hover:bg-slate-50 transition-all">
+                                    <span class="text-2xl mb-1">🪢</span>
+                                    <span class="text-xs sm:text-sm font-bold">줄넘기</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- 3. 기록 입력 필드 -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="recordInput" class="block text-sm font-semibold text-slate-700">
+                                측정 기록 <span class="text-rose-500">*</span>
+                            </label>
+                            <span id="recordHintBadge" class="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                                예: 50m 8.4초 / 100m 15.2초
+                            </span>
+                        </div>
+                        <input type="text" id="recordInput" required placeholder="예: 100m 15.2초" 
+                            class="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-4 py-3 text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                        
+                        <!-- 빠른 입력 추천 칩 -->
+                        <div id="quickChips" class="flex flex-wrap gap-1.5 mt-2">
+                            <!-- JS로 종목에 맞게 동적 생성됨 -->
+                        </div>
+                    </div>
+
+                    <!-- 4. 메모/비고 (선택 사항) -->
+                    <div>
+                        <label for="memoInput" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            메모 / 특이사항 <span class="text-xs font-normal text-slate-400">(선택)</span>
+                        </label>
+                        <input type="text" id="memoInput" placeholder="예: 자세가 매우 안정적임, 개인 최고 기록 달성" 
+                            class="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all">
+                    </div>
+
+                    <!-- 알림 메시지 박스 (alert 대신 사용) -->
+                    <div id="formFeedback" class="hidden rounded-xl p-3 text-xs font-medium flex items-center gap-2"></div>
+
+                    <!-- 5. 기록 추가 버튼 -->
+                    <button type="submit" id="submitBtn" class="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                        <span>기록 저장하기</span>
+                    </button>
+                </form>
+            </section>
+
+            <!-- 오른쪽: 입력된 기록 목록 (7컬럼) -->
+            <section class="lg:col-span-7 flex flex-col gap-4">
+                <!-- 목록 상단 헤더 및 필터 탭 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-lg font-bold text-slate-900">운동 기록 목록</h2>
+                            <span id="recordCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
+                                0건
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs text-slate-400 flex items-center gap-1">
+                                <i data-lucide="arrow-down-wide-narrow" class="w-3.5 h-3.5"></i>
+                                최신 등록순
+                            </span>
+                            <button type="button" id="refreshBtn" onclick="fetchRecordsFromSheet()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200/80 text-slate-700 transition-colors cursor-pointer">
+                                <i data-lucide="refresh-cw" id="refreshIcon" class="w-3.5 h-3.5"></i>
+                                새로고침
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 종목별 필터링 탭 -->
+                    <div class="flex items-center gap-1.5 overflow-x-auto pb-1" id="filterTabs">
+                        <button type="button" data-filter="전체" class="filter-btn active px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white transition-all cursor-pointer whitespace-nowrap">
+                            전체
+                        </button>
+                        <button type="button" data-filter="달리기" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+                            <span>🏃</span> 달리기
+                        </button>
+                        <button type="button" data-filter="축구" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+                            <span>⚽</span> 축구
+                        </button>
+                        <button type="button" data-filter="줄넘기" class="filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+                            <span>🪢</span> 줄넘기
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 기록 카드 리스트 컨테이너 -->
+                <div id="recordsListContainer" class="space-y-3">
+                    <!-- JS로 동적 렌더링 -->
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- 토스트 알림 (삭제 및 추가 피드백용) -->
+    <div id="toastNotification" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium">
+            <i data-lucide="info" class="w-4 h-4 text-emerald-400"></i>
+            <span id="toastMessage">알림 메시지</span>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. Google Apps Script 웹 앱 URL 및 메타데이터 설정
+        // ==========================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzsaMOiJkwU0olBy8Tz1iZv6RiWp3c0GRSCDYgl_RN6Z70IH6TichI7jsG2oQUPv0s9/exec';
+        
+        // 종목별 UI 스타일 및 입력 힌트 설정
+        const SPORT_CONFIG = {
+            '달리기': {
+                emoji: '🏃',
+                badgeBg: 'bg-blue-50',
+                badgeText: 'text-blue-700',
+                badgeBorder: 'border-blue-200',
+                hint: '예: 50m 8.4초 / 100m 15.2초',
+                placeholder: '예: 100m 15.2초',
+                quickPresets: ['50m 8.5초', '100m 15.0초', '오래달리기 4분 10초']
+            },
+            '축구': {
+                emoji: '⚽',
+                badgeBg: 'bg-emerald-50',
+                badgeText: 'text-emerald-700',
+                badgeBorder: 'border-emerald-200',
+                hint: '예: 드리블 28초 / 패널티킥 5회 중 4골',
+                placeholder: '예: 드리블 코스 완주 28.5초',
+                quickPresets: ['드리블 25초', '슈팅 정확도 4/5회', '리프팅 32회']
+            },
+            '줄넘기': {
+                emoji: '🪢',
+                badgeBg: 'bg-amber-50',
+                badgeText: 'text-amber-700',
+                badgeBorder: 'border-amber-200',
+                hint: '예: 1분 양발모아뛰기 120회 / 2단뛰기 15회',
+                placeholder: '예: 1분 동안 125회 성공',
+                quickPresets: ['1분 110회', '1분 135회', '2단뛰기 20회']
+            }
+        };
+
+        // 서버에서 불러온 운동 기록 목록 저장 배열
+        let exerciseRecords = [];
+        let isLoading = false;
+        let fetchError = null;
+
+        // 현재 선택된 필터 상태 ('전체', '달리기', '축구', '줄넘기')
+        let currentFilter = '전체';
+
+        // ==========================================
+        // 2. DOM 요소 참조
+        // ==========================================
+        const recordForm = document.getElementById('recordForm');
+        const studentSelect = document.getElementById('studentSelect');
+        const sportRadios = document.querySelectorAll('input[name="sport"]');
+        const recordInput = document.getElementById('recordInput');
+        const memoInput = document.getElementById('memoInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const recordHintBadge = document.getElementById('recordHintBadge');
+        const quickChipsContainer = document.getElementById('quickChips');
+        const recordsListContainer = document.getElementById('recordsListContainer');
+        const recordCountBadge = document.getElementById('recordCountBadge');
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const toastNotification = document.getElementById('toastNotification');
+        const toastMessage = document.getElementById('toastMessage');
+        const syncStatusBadge = document.getElementById('syncStatusBadge');
+        const syncStatusDot = document.getElementById('syncStatusDot');
+        const syncStatusText = document.getElementById('syncStatusText');
+        const refreshIcon = document.getElementById('refreshIcon');
+
+        // ==========================================
+        // 3. 핵심 기능 및 API 연동 함수
+        // ==========================================
+
+        // 상단 동기화 상태 배지 업데이트
+        function setSyncStatus(state, text) {
+            if (state === 'loading') {
+                syncStatusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 transition-colors';
+                syncStatusDot.className = 'w-2 h-2 rounded-full bg-blue-500 animate-ping';
+                syncStatusText.textContent = text || '동기화 중...';
+            } else if (state === 'error') {
+                syncStatusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 transition-colors';
+                syncStatusDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                syncStatusText.textContent = text || '연동 오류';
+            } else {
+                syncStatusBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 transition-colors';
+                syncStatusDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+                syncStatusText.textContent = text || 'Google Sheets 연동됨';
+            }
+        }
+
+        // Google Apps Script에서 기록 목록 불러오기 (GET - 커스텀 헤더 없음)
+        async function fetchRecordsFromSheet() {
+            isLoading = true;
+            fetchError = null;
+            setSyncStatus('loading', '데이터 불러오는 중...');
+            if (refreshIcon) refreshIcon.classList.add('animate-spin');
+            renderRecords();
+
+            try {
+                // CORS 프리플라이트 방지를 위해 커스텀 헤더 없이 기본 fetch 호출
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류 (${response.status})`);
+                }
+
+                const result = await response.json();
+                
+                // { status: 'success', data: [...] } 또는 배열 직접 반환 모두 처리
+                let rawList = [];
+                if (Array.isArray(result)) {
+                    rawList = result;
+                } else if (result && result.status === 'success' && Array.isArray(result.data)) {
+                    rawList = result.data;
+                } else if (result && result.status === 'error') {
+                    throw new Error(result.message || '서버에서 데이터를 가져오지 못했습니다.');
+                }
+
+                // 시트 데이터 매핑 (이름, 종목, 기록, 시간)
+                exerciseRecords = rawList.map((item, idx) => ({
+                    id: item.rowNumber || `${Date.now()}-${idx}`,
+                    studentName: item.name || item['이름'] || '이름 없음',
+                    sport: item.sport || item['종목'] || '달리기',
+                    recordValue: item.record || item['기록'] || '',
+                    timeText: item.timestamp || item['시간'] || ''
+                }));
+
+                setSyncStatus('connected', 'Google Sheets 연동됨');
+            } catch (error) {
+                console.error('기록 조회 실패:', error);
+                fetchError = error.message || '네트워크 오류가 발생했습니다.';
+                setSyncStatus('error', '불러오기 실패');
+            } finally {
+                isLoading = false;
+                if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+                renderRecords();
+            }
+        }
+
+        // 선택된 종목에 맞춰 입력 힌트 및 빠른 입력 칩 업데이트
+        function updateSportInputUI(sportName) {
+            const config = SPORT_CONFIG[sportName];
+            if (!config) return;
+
+            recordHintBadge.textContent = config.hint;
+            recordHintBadge.className = `text-xs font-medium px-2 py-0.5 rounded-md ${config.badgeBg} ${config.badgeText}`;
+            recordInput.placeholder = config.placeholder;
+
+            // 빠른 입력 추천 칩 렌더링
+            quickChipsContainer.innerHTML = config.quickPresets.map(preset => `
+                <button type="button" onclick="applyQuickPreset('${preset}')" 
+                    class="text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors cursor-pointer">
+                    + ${preset}
+                </button>
+            `).join('');
+        }
+
+        // 빠른 입력 칩 클릭 시 입력창에 자동 채우기
+        window.applyQuickPreset = function(text) {
+            recordInput.value = text;
+            recordInput.focus();
+        };
+
+        // 기록 목록 화면 렌더링 (로딩 / 에러 / 빈 상태 / 최신순 목록)
+        function renderRecords() {
+            // 1. 로딩 중 상태 표시 (스켈레톤 카드)
+            if (isLoading && exerciseRecords.length === 0) {
+                recordsListContainer.innerHTML = `
+                    <div class="space-y-3">
+                        ${[1, 2, 3].map(() => `
+                            <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm animate-pulse flex items-start gap-3.5">
+                                <div class="w-11 h-11 rounded-xl bg-slate-200 shrink-0"></div>
+                                <div class="flex-1 space-y-2.5 py-0.5">
+                                    <div class="flex items-center gap-2">
+                                        <div class="h-4 bg-slate-200 rounded w-16"></div>
+                                        <div class="h-4 bg-slate-200 rounded w-12"></div>
+                                        <div class="h-3 bg-slate-100 rounded w-24"></div>
+                                    </div>
+                                    <div class="h-5 bg-slate-200 rounded w-3/5"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                return;
+            }
+
+            // 2. 통신 오류 상태 표시
+            if (fetchError) {
+                recordsListContainer.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-rose-200 p-8 text-center flex flex-col items-center justify-center">
+                        <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mb-3">
+                            <i data-lucide="wifi-off" class="w-6 h-6"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-800 mb-1">구글 시트 데이터를 불러오지 못했습니다</p>
+                        <p class="text-xs text-slate-500 mb-4">${escapeHTML(fetchError)}</p>
+                        <button type="button" onclick="fetchRecordsFromSheet()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer">
+                            다시 시도하기
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // 필터링된 목록 추출
+            const filteredRecords = currentFilter === '전체' 
+                ? exerciseRecords 
+                : exerciseRecords.filter(item => item.sport === currentFilter);
+
+            // 상단 개수 배지 업데이트
+            recordCountBadge.textContent = `${filteredRecords.length}건`;
+
+            // 3. 데이터가 없는 경우 빈 상태(Empty State) 표시
+            if (filteredRecords.length === 0) {
+                recordsListContainer.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center flex flex-col items-center justify-center">
+                        <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                            <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+                        </div>
+                        <p class="text-sm font-bold text-slate-700 mb-1">표시할 운동 기록이 없습니다</p>
+                        <p class="text-xs text-slate-400">왼쪽 폼에서 학생의 새로운 운동 기록을 저장해보세요.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            // 4. 기록 카드 HTML 생성
+            recordsListContainer.innerHTML = filteredRecords.map((record, index) => {
+                const style = SPORT_CONFIG[record.sport] || SPORT_CONFIG['달리기'];
+                const isLatest = index === 0;
+
+                return `
+                    <div class="animate-record-enter bg-white rounded-2xl p-4 sm:p-5 border ${isLatest ? 'border-emerald-300 shadow-md shadow-emerald-500/5' : 'border-slate-200/80 shadow-sm'} hover:border-slate-300 transition-all flex items-start justify-between gap-4">
+                        <div class="flex items-start gap-3.5 min-w-0">
+                            <!-- 종목 아이콘 아바타 -->
+                            <div class="w-11 h-11 rounded-xl ${style.badgeBg} border ${style.badgeBorder} flex items-center justify-center text-xl shrink-0 mt-0.5">
+                                ${style.emoji}
+                            </div>
+                            
+                            <!-- 기록 상세 내용 -->
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                    <span class="text-base font-bold text-slate-900">${escapeHTML(record.studentName)}</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold border ${style.badgeBg} ${style.badgeText} ${style.badgeBorder}">
+                                        ${escapeHTML(record.sport)}
+                                    </span>
+                                    ${record.timeText ? `
+                                        <span class="text-xs text-slate-400 flex items-center gap-1">
+                                            <i data-lucide="clock" class="w-3 h-3"></i>
+                                            ${escapeHTML(record.timeText)}
+                                        </span>
+                                    ` : ''}
+                                </div>
+                                
+                                <!-- 측정 기록 강조 표시 -->
+                                <p class="text-sm sm:text-base font-extrabold text-slate-800 tracking-tight break-words">
+                                    ${escapeHTML(record.recordValue)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 시트 저장 완료 표시 배지 -->
+                        <span title="Google Sheets에 저장됨" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-50 text-slate-400 text-[11px] font-medium shrink-0">
+                            <i data-lucide="cloud-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+                            저장됨
+                        </span>
+                    </div>
+                `;
+            }).join('');
+
+            // 동적으로 추가된 아이콘 렌더링
+            lucide.createIcons();
+        }
+
+        // 토스트 알림 표시 함수
+        let toastTimeout;
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            const toastBox = toastNotification.firstElementChild;
+            if (isError) {
+                toastBox.className = 'bg-rose-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium';
+            } else {
+                toastBox.className = 'bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium';
+            }
+            toastNotification.classList.remove('translate-y-20', 'opacity-0');
+            
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toastNotification.classList.add('translate-y-20', 'opacity-0');
+            }, 2800);
+        }
+
+        // XSS 방지를 위한 간단한 HTML 이스케이프 헬퍼
+        function escapeHTML(str) {
+            return String(str).replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // ==========================================
+        // 4. 이벤트 리스너 등록
+        // ==========================================
+
+        // 종목 라디오 버튼 변경 감지
+        sportRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                updateSportInputUI(e.target.value);
+            });
+        });
+
+        // 폼 제출(Google Sheets에 POST 저장) 처리
+        recordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const studentName = studentSelect.value;
+            const selectedSport = document.querySelector('input[name="sport"]:checked').value;
+            const rawRecord = recordInput.value.trim();
+            const memo = memoInput.value.trim();
+
+            if (!studentName || !rawRecord) return;
+
+            // 시트 열(이름, 종목, 기록, 시간) 구조에 맞춰 메모가 있으면 기록 텍스트에 함께 포함
+            const finalRecordText = memo ? `${rawRecord} (${memo})` : rawRecord;
+
+            // 버튼 로딩 상태 전환
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>구글 시트에 저장 중...</span>
+            `;
+            setSyncStatus('loading', '기록 저장 중...');
+
+            try {
+                // CORS 프리플라이트(OPTIONS)를 피하기 위해 커스텀 headers 없이 JSON 문자열을 body로 전송
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: studentName,
+                        sport: selectedSport,
+                        record: finalRecordText
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`서버 응답 오류 (${response.status})`);
+                }
+
+                const result = await response.json();
+                if (result && result.status === 'error') {
+                    throw new Error(result.message || '저장 처리 중 오류가 발생했습니다.');
+                }
+
+                // 입력 필드 초기화
+                recordInput.value = '';
+                memoInput.value = '';
+                recordInput.focus();
+
+                // 다른 종목 필터를 보고 있었다면 전체 탭으로 전환
+                if (currentFilter !== '전체' && currentFilter !== selectedSport) {
+                    setActiveFilter('전체', false);
+                }
+
+                showToast(`${studentName} 학생의 ${selectedSport} 기록이 구글 시트에 저장되었습니다!`);
+
+                // 최신 서버 데이터(서버에서 찍힌 시간 포함)를 다시 불러와 목록 갱신
+                await fetchRecordsFromSheet();
+
+            } catch (error) {
+                console.error('기록 저장 실패:', error);
+                setSyncStatus('error', '저장 실패');
+                showToast(`저장에 실패했습니다: ${error.message}`, true);
+            } finally {
+                // 버튼 상태 복구
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `
+                    <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                    <span>기록 저장하기</span>
+                `;
+                lucide.createIcons();
+            }
+        });
+
+        // 필터 탭 클릭 이벤트
+        function setActiveFilter(filterName, shouldRender = true) {
+            currentFilter = filterName;
+            filterBtns.forEach(btn => {
+                if (btn.dataset.filter === filterName) {
+                    btn.className = 'filter-btn active px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-900 text-white transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5';
+                } else {
+                    btn.className = 'filter-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200/70 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5';
+                }
+            });
+            if (shouldRender) renderRecords();
+        }
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                setActiveFilter(btn.dataset.filter);
+            });
+        });
+
+        // ==========================================
+        // 5. 초기 실행
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateSportInputUI('달리기'); // 기본 선택 종목 UI 세팅
+            fetchRecordsFromSheet();      // 페이지 로드 시 구글 시트 데이터 조회
+        });
+    </script>
+</body>
+</html>
